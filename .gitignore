@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Production build output
+dist/
+
+# Local environment variables & secrets
+.env
+.env*.local
+
+# Large media files exceeding GitHub's 100MB limit
+public/topography.mp4
+
+# OS & Editor
+.DS_Store
+Thumbs.db
