@@ -40,12 +40,13 @@ interface Store {
   isCloudConnected: boolean
   syncFromSupabase: (userId?: string) => Promise<void>
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>
-  register: (name: string, email: string, password: string) => Promise<{ success: boolean; message?: string }>
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; message?: string; needsConfirmation?: boolean }>
   validateLoginCredentials: (email: string, password: string) => { success: boolean; message?: string; user?: User }
   checkEmailAvailable: (email: string) => { available: boolean; message?: string }
   loginWithUser: (user: User) => void
   sendEmailOtp: (email: string, name?: string) => Promise<{ success: boolean; message?: string; isRateLimited?: boolean; isEmailError?: boolean }>
   verifyEmailOtp: (email: string, token: string) => Promise<{ success: boolean; message?: string; user?: User }>
+  handleAuthCallback: () => Promise<void>
   logout: () => void
   transactions: Transaction[]
   budgets: Budget[]
@@ -284,14 +285,28 @@ export const useStore = create<Store>((set, get) => ({
               full_name: name.trim(),
               name: name.trim(),
             },
+            emailRedirectTo: `${window.location.origin}/`,
           },
         });
 
         if (error) {
+          // Detect email delivery failures and provide a clear message
+          const msg = error.message.toLowerCase();
+          if (msg.includes('error sending') || msg.includes('magic link') || msg.includes('confirmation') || (error as any).status === 500) {
+            return { success: false, message: 'Email service unavailable. Please check your Supabase SMTP settings, or sign in with Google.' };
+          }
           return { success: false, message: error.message };
         }
 
         if (data?.user) {
+          // Check if Supabase requires email confirmation (user exists but isn't confirmed)
+          const isConfirmed = data.user.confirmed_at || data.session;
+          if (!isConfirmed) {
+            // Email confirmation required — don't auto-login
+            return { success: true, needsConfirmation: true };
+          }
+
+          // User is already confirmed (e.g. email confirmation disabled in Supabase dashboard)
           const user: User = {
             id: data.user.id,
             name: name.trim(),
@@ -376,6 +391,32 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
 
+  handleAuthCallback: async () => {
+    if (!isSupabaseConfigured()) return;
+    const client = getSupabase();
+    if (!client) return;
+
+    try {
+      // This picks up the auth tokens from the URL hash after email confirmation redirect
+      const { data: { session }, error } = await client.auth.getSession();
+      if (error || !session?.user) return;
+
+      const supaUser = session.user;
+      const user: User = {
+        id: supaUser.id,
+        name: supaUser.user_metadata?.full_name || supaUser.user_metadata?.name || supaUser.email?.split('@')[0] || 'User',
+        email: supaUser.email || '',
+        avatarUrl: supaUser.user_metadata?.avatar_url,
+        createdAt: supaUser.created_at,
+      };
+      localStorage.setItem('tallywise-current-user', JSON.stringify(user));
+      set({ currentUser: user, isAuthenticated: true, isCloudConnected: true });
+      await get().syncFromSupabase(user.id);
+    } catch (err) {
+      console.error('Auth callback error:', err);
+    }
+  },
+
   sendEmailOtp: async (email: string, name?: string) => {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail) {
@@ -403,13 +444,16 @@ export const useStore = create<Store>((set, get) => ({
 
       if (error) {
         const isRateLimit = error.message.toLowerCase().includes('rate limit') || (error as any).status === 429;
-        const isEmailError = error.message.toLowerCase().includes('confirmation email') || error.message.toLowerCase().includes('error sending') || (error as any).status === 500;
+        const isTimeout = error.message.toLowerCase().includes('504') || error.message.toLowerCase().includes('timeout') || (error as any).status === 504;
+        const isEmailError = error.message.toLowerCase().includes('confirmation email') || error.message.toLowerCase().includes('error sending') || error.message.toLowerCase().includes('magic link') || (error as any).status === 500 || isTimeout;
         return { 
           success: false, 
           isRateLimited: isRateLimit || isEmailError,
           isEmailError,
-          message: isEmailError
-            ? 'Supabase email service error: Could not dispatch confirmation email. Disable "Confirm email" in Supabase Dashboard -> Auth -> Providers -> Email, or use Dev Code / Google.'
+          message: isTimeout
+            ? 'SMTP Timeout (HTTP 504): Supabase timed out connecting to the mail server. For Gmail, change Port to 587, or switch to Resend.'
+            : isEmailError
+            ? 'Supabase email service error: Could not dispatch confirmation email. Check SMTP settings or use Dev Code / Google Sign-In.'
             : isRateLimit
             ? 'Supabase email rate limit exceeded (free projects allow ~3-4 emails/hr). Use Google, Password login, or the dev bypass code.'
             : error.message 
@@ -420,12 +464,15 @@ export const useStore = create<Store>((set, get) => ({
     } catch (err: any) {
       const msg = err?.message || '';
       const isRateLimit = msg.toLowerCase().includes('rate limit');
-      const isEmailError = msg.toLowerCase().includes('confirmation email') || msg.toLowerCase().includes('error sending');
+      const isTimeout = msg.toLowerCase().includes('504') || msg.toLowerCase().includes('timeout');
+      const isEmailError = msg.toLowerCase().includes('confirmation email') || msg.toLowerCase().includes('error sending') || isTimeout;
       return { 
         success: false, 
         isRateLimited: isRateLimit || isEmailError,
         isEmailError,
-        message: isEmailError
+        message: isTimeout
+          ? 'SMTP Timeout (HTTP 504): Mail server connection timed out. Change port to 587 or use Resend.'
+          : isEmailError
           ? 'Supabase email service error: Could not send email. Use Dev Code or Google Sign-In.'
           : isRateLimit 
           ? 'Supabase email rate limit exceeded (free projects allow ~3-4 emails/hr).'

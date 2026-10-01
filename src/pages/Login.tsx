@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, User as UserIcon, Eye, EyeOff, ArrowRight, ShieldCheck, KeyRound, AlertTriangle } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Eye, EyeOff, ArrowRight, ShieldCheck, CheckCircle } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { GoogleSignInButton } from '../components/auth/GoogleSignInButton';
-import { OtpVerificationView } from '../components/auth/OtpVerificationView';
+import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
 import toast from 'react-hot-toast';
 
 export function Login() {
@@ -11,11 +11,9 @@ export function Login() {
   const login = useStore((state) => state.login);
   const register = useStore((state) => state.register);
   const loginWithUser = useStore((state) => state.loginWithUser);
-  const sendEmailOtp = useStore((state) => state.sendEmailOtp);
 
   const [mode, setMode] = useState<'signin' | 'register'>('signin');
-  const [authMethod, setAuthMethod] = useState<'otp' | 'password'>('otp');
-  const [step, setStep] = useState<'form' | 'otp'>('form');
+  const [step, setStep] = useState<'form' | 'confirmation'>('form');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -25,22 +23,16 @@ export function Login() {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [rateLimited, setRateLimited] = useState(false);
-  const [emailError, setEmailError] = useState(false);
 
   const handleModeChange = (newMode: 'signin' | 'register') => {
     setMode(newMode);
     setErrorMessage('');
-    setRateLimited(false);
-    setEmailError(false);
     setStep('form');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
-    setRateLimited(false);
-    setEmailError(false);
 
     const cleanEmail = email.trim().toLowerCase();
 
@@ -49,38 +41,6 @@ export function Login() {
       return;
     }
 
-    // 1. Email OTP Flow (Supabase native passwordless)
-    if (authMethod === 'otp') {
-      if (mode === 'register' && !name.trim()) {
-        setErrorMessage('Please enter your full name.');
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const res = await sendEmailOtp(cleanEmail, mode === 'register' ? name.trim() : undefined);
-        if (res.success) {
-          toast.success(`Verification code sent to ${cleanEmail}`);
-          setRateLimited(false);
-          setEmailError(false);
-          setStep('otp');
-        } else {
-          if (res.isEmailError) {
-            setEmailError(true);
-          } else if (res.isRateLimited) {
-            setRateLimited(true);
-          }
-          setErrorMessage(res.message || 'Failed to send verification code.');
-        }
-      } catch (err: any) {
-        setErrorMessage(err?.message || 'An unexpected error occurred. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
-    // 2. Traditional Password Flow
     if (!password) {
       setErrorMessage('Please enter your password.');
       return;
@@ -104,8 +64,14 @@ export function Login() {
       try {
         const res = await register(name.trim(), cleanEmail, password);
         if (res.success) {
-          toast.success(`Welcome to Tally Wise, ${name.trim()}!`);
-          navigate('/');
+          if (res.needsConfirmation) {
+            // Supabase sent a confirmation email — show the confirmation screen
+            setStep('confirmation');
+          } else {
+            // No confirmation needed (auto-confirmed or local fallback)
+            toast.success(`Welcome to Tally Wise, ${name.trim()}!`);
+            navigate('/');
+          }
         } else {
           setErrorMessage(res.message || 'Registration failed.');
           toast.error(res.message || 'Registration failed.');
@@ -116,7 +82,7 @@ export function Login() {
         setLoading(false);
       }
     } else {
-      // Sign-in mode with password
+      // Sign-in mode
       setLoading(true);
       try {
         const res = await login(cleanEmail, password);
@@ -142,6 +108,10 @@ export function Login() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-tally-bg-light dark:bg-tally-bg-dark p-4 sm:p-6 lg:p-8 relative overflow-hidden font-sans selection:bg-tally-primary selection:text-tally-primary-dark">
+      {/* Language Switcher in top right */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-30">
+        <LanguageSwitcher />
+      </div>
       {/* Background Topography Video */}
       <video
         autoPlay
@@ -180,20 +150,58 @@ export function Login() {
 
         {/* Card Container */}
         <div className="bg-white/80 dark:bg-tally-surface-dark/90 backdrop-blur-xl border border-tally-border-light dark:border-tally-border-dark rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/5 dark:shadow-black/40 transition-all">
-          {step === 'otp' ? (
-            /* OTP Verification Screen */
-            <OtpVerificationView
-              email={email}
-              purpose={mode === 'register' ? 'register' : 'login'}
-              userName={mode === 'register' ? name : undefined}
-              rememberMe={rememberMe}
-              onRememberMeChange={setRememberMe}
-              onVerified={() => navigate('/')}
-              onBack={() => {
-                setStep('form');
-                setErrorMessage('');
-              }}
-            />
+          {step === 'confirmation' ? (
+            /* Email Confirmation Sent Screen */
+            <div className="w-full animate-fade-in text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center mb-4 shadow-inner">
+                <CheckCircle className="w-7 h-7" />
+              </div>
+              <h2 className="text-lg font-display font-bold text-tally-text-primary dark:text-white mb-2">
+                Check Your Email
+              </h2>
+              <p className="text-xs text-tally-text-secondary dark:text-tally-text-secondaryDark leading-relaxed mb-4">
+                We've sent a confirmation link to
+              </p>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-tally-text-primary dark:text-white mb-5">
+                <Mail className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                <span className="truncate max-w-[240px]">{email}</span>
+              </div>
+              <p className="text-[11px] text-tally-text-secondary dark:text-tally-text-secondaryDark leading-relaxed mb-6">
+                Click the link in the email to verify your account. Once confirmed, you'll be automatically signed in.
+              </p>
+
+              {/* Instructions */}
+              <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800/60 text-xs text-blue-800 dark:text-blue-300 mb-5">
+                <p className="leading-relaxed">
+                  💡 Don't see the email? Check your <strong>spam/junk</strong> folder. The email is sent by Supabase.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('form');
+                    setMode('signin');
+                    setErrorMessage('');
+                  }}
+                  className="w-full py-3 rounded-xl bg-tally-text-primary dark:bg-white text-white dark:text-tally-text-primary font-display font-bold text-xs tracking-wide hover:opacity-90 active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10 dark:shadow-white/5"
+                >
+                  <span>Go to Sign In</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('form');
+                    setErrorMessage('');
+                  }}
+                  className="text-xs text-tally-text-secondary dark:text-tally-text-secondaryDark hover:text-tally-text-primary dark:hover:text-white font-semibold transition-colors py-2"
+                >
+                  ← Back to registration
+                </button>
+              </div>
+            </div>
           ) : (
             /* Primary Login/Register Form */
             <>
@@ -223,83 +231,12 @@ export function Login() {
                 </button>
               </div>
 
-              {/* Email Error / Rate Limit Alert Banner */}
-              {emailError ? (
-                <div className="mb-5 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 space-y-2.5 animate-fade-in">
-                  <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <span>Supabase Mail Server Issue (Error 500)</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-amber-800/90 dark:text-amber-300/90">
-                    Supabase failed to deliver the OTP email (<code>Error sending magic link email</code>). To send real emails, connect a free SMTP provider (like Resend) in Supabase Dashboard ➔ Project Settings ➔ Auth ➔ SMTP Settings. In the meantime, use the dev code or Google Sign-In below.
-                  </p>
-                  <div className="pt-2 border-t border-amber-200/60 dark:border-amber-800/40 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStep('otp');
-                        setErrorMessage('');
-                        setEmailError(false);
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition-all shadow-sm active:scale-95"
-                    >
-                      Enter Dev Code (123456)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthMethod('password');
-                        setEmailError(false);
-                        setErrorMessage('');
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300 font-semibold text-[11px] hover:bg-amber-100/50 dark:hover:bg-slate-700 transition-all"
-                    >
-                      Sign in with Password
-                    </button>
-                  </div>
+              {/* Error Banner */}
+              {errorMessage && (
+                <div className="mb-5 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                  <span>{errorMessage}</span>
                 </div>
-              ) : rateLimited ? (
-                <div className="mb-5 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 space-y-2.5 animate-fade-in">
-                  <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <span>Supabase Email Rate Limit Exceeded</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-amber-800/90 dark:text-amber-300/90">
-                    Supabase's default mailer limits emails to <strong>~3-4 per hour</strong> on free tier projects to prevent spam.
-                  </p>
-                  <div className="pt-2 border-t border-amber-200/60 dark:border-amber-800/40 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStep('otp');
-                        setErrorMessage('');
-                        setRateLimited(false);
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition-all shadow-sm active:scale-95"
-                    >
-                      Enter Dev Code (123456)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthMethod('password');
-                        setRateLimited(false);
-                        setErrorMessage('');
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300 font-semibold text-[11px] hover:bg-amber-100/50 dark:hover:bg-slate-700 transition-all"
-                    >
-                      Sign in with Password
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Standard Error Banner */
-                errorMessage && (
-                  <div className="mb-5 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                    <span>{errorMessage}</span>
-                  </div>
-                )
               )}
 
               {/* Google Sign In Button */}
@@ -319,40 +256,6 @@ export function Login() {
                       or continue with email
                     </span>
                   </div>
-                </div>
-
-                {/* Auth Method Switcher: Email OTP vs Password */}
-                <div className="flex bg-tally-bg-light dark:bg-tally-bg-dark p-1 rounded-xl border border-tally-border-light/60 dark:border-tally-border-dark/60">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMethod('otp');
-                      setErrorMessage('');
-                    }}
-                    className={`flex-1 py-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                      authMethod === 'otp'
-                        ? 'bg-white dark:bg-tally-surface-darkHover text-blue-600 dark:text-blue-400 shadow-sm'
-                        : 'text-tally-text-secondary dark:text-tally-text-secondaryDark hover:text-tally-text-primary dark:hover:text-white'
-                    }`}
-                  >
-                    <KeyRound className="w-3.5 h-3.5" />
-                    <span>Email OTP Code</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMethod('password');
-                      setErrorMessage('');
-                    }}
-                    className={`flex-1 py-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                      authMethod === 'password'
-                        ? 'bg-white dark:bg-tally-surface-darkHover text-tally-text-primary dark:text-white shadow-sm'
-                        : 'text-tally-text-secondary dark:text-tally-text-secondaryDark hover:text-tally-text-primary dark:hover:text-white'
-                    }`}
-                  >
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>Password</span>
-                  </button>
                 </div>
               </div>
 
@@ -394,33 +297,31 @@ export function Login() {
                   </div>
                 </div>
 
-                {authMethod === 'password' && (
-                  <div>
-                    <label className="block text-[11px] font-bold text-tally-text-secondary dark:text-tally-text-secondaryDark uppercase tracking-wider mb-1.5">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-tally-text-secondary dark:text-tally-text-secondaryDark" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full pl-10 pr-10 py-3 rounded-xl bg-tally-bg-light dark:bg-tally-bg-dark border border-tally-border-light dark:border-tally-border-dark focus:border-tally-primary dark:focus:border-white focus:outline-none text-xs font-semibold text-tally-text-primary dark:text-white transition-colors"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-tally-text-secondary hover:text-tally-text-primary dark:text-tally-text-secondaryDark dark:hover:text-white transition-colors"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-tally-text-secondary dark:text-tally-text-secondaryDark uppercase tracking-wider mb-1.5">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-tally-text-secondary dark:text-tally-text-secondaryDark" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-10 pr-10 py-3 rounded-xl bg-tally-bg-light dark:bg-tally-bg-dark border border-tally-border-light dark:border-tally-border-dark focus:border-tally-primary dark:focus:border-white focus:outline-none text-xs font-semibold text-tally-text-primary dark:text-white transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-tally-text-secondary hover:text-tally-text-primary dark:text-tally-text-secondaryDark dark:hover:text-white transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
-                )}
+                </div>
 
-                {authMethod === 'password' && mode === 'register' && (
+                {mode === 'register' && (
                   <div>
                     <label className="block text-[11px] font-bold text-tally-text-secondary dark:text-tally-text-secondaryDark uppercase tracking-wider mb-1.5">
                       Confirm Password
@@ -452,7 +353,7 @@ export function Login() {
                       Remember me
                     </span>
                   </label>
-                  {authMethod === 'password' && mode === 'signin' && (
+                  {mode === 'signin' && (
                     <button
                       type="button"
                       onClick={() => toast('Password reset instructions will be sent to your email.')}
@@ -472,15 +373,7 @@ export function Login() {
                     <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
-                      <span>
-                        {authMethod === 'otp'
-                          ? mode === 'signin'
-                            ? 'Send One-Time Code'
-                            : 'Send Verification Code'
-                          : mode === 'signin'
-                          ? 'Sign In'
-                          : 'Create Account'}
-                      </span>
+                      <span>{mode === 'signin' ? 'Sign In' : 'Create Account'}</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}

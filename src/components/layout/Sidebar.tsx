@@ -1,7 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
-  Bell, 
   Home, 
   FileSignature, 
   Files, 
@@ -10,65 +9,105 @@ import {
   ArrowRightLeft, 
   Wallet, 
   Sparkles,
-  LogOut
+  LogOut,
+  PiggyBank,
+  Target,
+  BarChart3,
+  FileBarChart,
+  Users,
+  Settings,
+  Landmark,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../../store/useStore';
+import { NotificationBell } from './NotificationBell';
+import { LanguageSwitcher } from './LanguageSwitcher';
+import { useI18n } from '../../i18n';
 import toast from 'react-hot-toast';
-
-const PRIMARY_NAV = [
-  { name: 'Home', icon: Home, path: '/' },
-  { name: 'Contracts', icon: FileSignature, path: '/contracts' },
-  { name: 'Documents', icon: Files, path: '/documents' },
-  { name: 'Invoices', icon: FileText, path: '/invoices' },
-  { name: 'Card', icon: CreditCard, path: '/card' },
-  { name: 'Transactions', icon: ArrowRightLeft, path: '/transactions' },
-  { name: 'Withdrawal', icon: Wallet, path: '/withdrawal' },
-];
 
 export function Sidebar() {
   const setAIAssistantOpen = useStore((state) => state.setAIAssistantOpen);
   const currentUser = useStore((state) => state.currentUser);
   const logout = useStore((state) => state.logout);
+  const { t } = useI18n();
+
+  const PRIMARY_NAV = [
+    { name: t.nav.home, icon: Home, path: '/' },
+    { name: t.nav.contracts, icon: FileSignature, path: '/contracts' },
+    { name: t.nav.documents, icon: Files, path: '/documents' },
+    { name: t.nav.invoices, icon: FileText, path: '/invoices' },
+    { name: t.nav.card, icon: CreditCard, path: '/card' },
+    { name: t.nav.transactions, icon: ArrowRightLeft, path: '/transactions' },
+    { name: t.nav.withdrawal, icon: Wallet, path: '/withdrawal' },
+  ];
+
+  const SECONDARY_NAV = [
+    { name: t.nav.accounts, icon: Landmark, path: '/accounts' },
+    { name: t.nav.budgets, icon: PiggyBank, path: '/budgets' },
+    { name: t.nav.goals, icon: Target, path: '/goals' },
+    { name: t.nav.analytics, icon: BarChart3, path: '/analytics' },
+    { name: t.nav.reports, icon: FileBarChart, path: '/reports' },
+  ];
+
+  const BOTTOM_NAV = [
+    { name: t.nav.referrals, icon: Users, path: '/referrals' },
+    { name: t.nav.settings, icon: Settings, path: '/settings' },
+  ];
+
+  const renderNavItem = (item: { name: string; icon: React.ElementType; path: string }) => (
+    <NavLink
+      key={item.path}
+      to={item.path}
+      end={item.path === '/'}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium",
+          isActive 
+            ? "bg-tally-primary/50 dark:bg-tally-primary-dark text-tally-primary-text dark:text-white" 
+            : "text-tally-text-secondary dark:text-tally-text-secondaryDark hover:bg-tally-surface-hover dark:hover:bg-tally-surface-darkHover hover:text-tally-text-primary dark:hover:text-white"
+        )
+      }
+    >
+      <item.icon className="w-[18px] h-[18px] stroke-[1.5]" />
+      <span className="truncate">{item.name}</span>
+    </NavLink>
+  );
+
   return (
     <aside className="w-64 h-full flex flex-col bg-tally-bg-light dark:bg-tally-bg-dark border-r border-tally-border-light dark:border-tally-border-dark p-6 transition-colors">
       {/* Header */}
-      <div className="flex items-center justify-between mb-10">
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Tally Wise Logo" className="w-9 h-9 rounded-full object-cover object-center shadow-sm" />
-          <span className="text-xl font-display font-bold text-tally-text-primary dark:text-tally-text-primaryDark tracking-tight">Tally Wise</span>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-2.5">
+          <img src="/logo.png" alt="Tally Wise Logo" className="w-8 h-8 rounded-full object-cover object-center shadow-sm" />
+          <span className="text-lg font-display font-bold text-tally-text-primary dark:text-tally-text-primaryDark tracking-tight">Tally Wise</span>
         </div>
-        <button className="relative p-2 rounded-full hover:bg-tally-surface-hover dark:hover:bg-tally-surface-darkHover transition-colors">
-          <Bell className="w-5 h-5 text-tally-text-secondary dark:text-tally-text-secondaryDark" />
-          <span className="absolute top-2 right-2.5 w-2 h-2 bg-tally-status-error rounded-full ring-2 ring-tally-bg-light dark:ring-tally-bg-dark" />
-        </button>
+        <div className="flex items-center gap-1">
+          <LanguageSwitcher />
+          <NotificationBell />
+        </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 flex flex-col gap-1 no-scrollbar overflow-y-auto">
-        <div className="flex flex-col gap-1 mb-6">
-          {PRIMARY_NAV.map((item) => (
-            <NavLink
-              key={item.name}
-              to={item.path}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium",
-                  isActive 
-                    ? "bg-tally-primary/50 dark:bg-tally-primary-dark text-tally-primary-text dark:text-white" 
-                    : "text-tally-text-secondary dark:text-tally-text-secondaryDark hover:bg-tally-surface-hover dark:hover:bg-tally-surface-darkHover hover:text-tally-text-primary dark:hover:text-white"
-                )
-              }
-            >
-              <item.icon className="w-5 h-5 stroke-[1.5]" />
-              {item.name}
-            </NavLink>
-          ))}
+      <nav className="flex-1 flex flex-col gap-0.5 no-scrollbar overflow-y-auto">
+        <div className="flex flex-col gap-0.5 mb-4">
+          {PRIMARY_NAV.map(renderNavItem)}
+        </div>
+
+        <div className="border-t border-tally-border-light dark:border-tally-border-dark my-2" />
+        
+        <div className="flex flex-col gap-0.5 mb-4">
+          {SECONDARY_NAV.map(renderNavItem)}
+        </div>
+
+        <div className="border-t border-tally-border-light dark:border-tally-border-dark my-2" />
+        
+        <div className="flex flex-col gap-0.5">
+          {BOTTOM_NAV.map(renderNavItem)}
         </div>
       </nav>
 
       {/* Promo Card */}
-      <div className="mt-auto pt-6">
+      <div className="mt-auto pt-4">
         <div 
           onClick={() => setAIAssistantOpen(true)}
           className="p-4 rounded-2xl bg-gradient-to-br from-tally-primary/40 to-tally-primary/10 dark:from-tally-primary-dark dark:to-tally-surface-dark border border-tally-primary/20 dark:border-tally-border-dark relative overflow-hidden cursor-pointer hover:border-tally-primary/50 transition-all group"
@@ -79,8 +118,8 @@ export function Sidebar() {
               <Sparkles className="w-4 h-4 text-tally-primary-text dark:text-white" />
             </div>
             <div>
-              <h4 className="font-display font-semibold text-tally-text-primary dark:text-white text-sm">AI Assistant</h4>
-              <p className="text-xs text-tally-text-secondary dark:text-tally-text-secondaryDark mt-1">Chat with Tally Wise AI.</p>
+              <h4 className="font-display font-semibold text-tally-text-primary dark:text-white text-sm">{t.ai.title}</h4>
+              <p className="text-xs text-tally-text-secondary dark:text-tally-text-secondaryDark mt-1">{t.ai.subtitle}</p>
             </div>
             <button 
               type="button"
@@ -114,9 +153,9 @@ export function Sidebar() {
             type="button"
             onClick={() => {
               logout();
-              toast.success('Signed out');
+              toast.success(t.common.signOut);
             }}
-            title="Sign Out"
+            title={t.common.signOut}
             className="p-1.5 rounded-lg text-tally-text-secondary hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
           >
             <LogOut className="w-4 h-4" />
@@ -126,3 +165,4 @@ export function Sidebar() {
     </aside>
   );
 }
+

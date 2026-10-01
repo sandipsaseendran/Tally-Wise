@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Plus, Database, Cloud, CheckCircle, Key, Globe, ExternalLink, Check, Copy } from 'lucide-react'
+import { Plus, Database, Cloud, CheckCircle, Key, Globe, ExternalLink, Check, Copy, Languages } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import Card from '../components/Card'
 import Modal from '../components/Modal'
@@ -11,10 +11,13 @@ import {
   clearSupabaseConfig,
   getSupabase
 } from '../lib/supabase'
+import { useI18n, SUPPORTED_LOCALES } from '../i18n'
+import type { Locale } from '../i18n'
 import toast from 'react-hot-toast'
 
-const Settings = () => {
+export const Settings = () => {
   const { settings, updateSettings, isCloudConnected, syncFromSupabase } = useStore()
+  const { locale, setLocale, t } = useI18n()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [formData, setFormData] = useState<Partial<any>>({})
 
@@ -98,6 +101,7 @@ const Settings = () => {
   }
 
   return (
+    <div className="flex-1 h-full overflow-y-auto no-scrollbar">
     <div className="space-y-6 max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -115,6 +119,39 @@ const Settings = () => {
         >
           <Plus size={16} /> Edit Preferences
         </button>
+      </div>
+
+      {/* Language Selector Card */}
+      <div className="bg-white/80 dark:bg-tally-surface-dark/90 backdrop-blur-xl border border-tally-border-light dark:border-tally-border-dark rounded-3xl p-6 sm:p-8 shadow-xl shadow-black/5 dark:shadow-black/20">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+            <Languages className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-tally-text-primary dark:text-white">{t.settings.language}</h2>
+            <p className="text-xs text-tally-text-secondary dark:text-tally-text-secondaryDark">{t.settings.selectLanguage}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {SUPPORTED_LOCALES.map(loc => (
+            <button
+              key={loc.code}
+              onClick={() => setLocale(loc.code as Locale)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left ${
+                locale === loc.code
+                  ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-700 shadow-sm'
+                  : 'border-tally-border-light dark:border-tally-border-dark hover:bg-tally-surface-hover dark:hover:bg-tally-surface-darkHover'
+              }`}
+            >
+              <span className="text-xl">{loc.flag}</span>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-tally-text-primary dark:text-white">{loc.nativeName}</span>
+                <span className="text-[10px] text-tally-text-secondary dark:text-tally-text-secondaryDark">{loc.name}</span>
+              </div>
+              {locale === loc.code && <Check className="w-4 h-4 text-blue-500 ml-auto" />}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Cloud Backend (Supabase) Card */}
@@ -336,6 +373,7 @@ const Settings = () => {
           </div>
         </form>
       </Modal>
+    </div>
     </div>
   )
 }

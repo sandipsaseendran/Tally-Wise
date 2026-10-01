@@ -9,6 +9,13 @@ import { Invoices } from './pages/Invoices';
 import { Card } from './pages/Card';
 import Transactions from './pages/Transactions';
 import { Withdrawal } from './pages/Withdrawal';
+import { Referrals } from './pages/Referrals';
+import { Settings } from './pages/Settings';
+import { Accounts } from './pages/Accounts';
+import { Budgets } from './pages/Budgets';
+import { Goals } from './pages/Goals';
+import { Analytics } from './pages/Analytics';
+import { Reports } from './pages/Reports';
 import Login from './pages/Login';
 
 import { AIAssistantModal } from './components/ai/AIAssistantModal';
@@ -37,8 +44,13 @@ function ProtectedLayout() {
           <Route path="/card" element={<Card />} />
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/withdrawal" element={<Withdrawal />} />
-          <Route path="/referrals" element={<Navigate to="/" replace />} />
-          <Route path="/settings" element={<Navigate to="/" replace />} />
+          <Route path="/accounts" element={<Accounts />} />
+          <Route path="/budgets" element={<Budgets />} />
+          <Route path="/goals" element={<Goals />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/referrals" element={<Referrals />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -62,10 +74,16 @@ function LoginRoute() {
 
 function App() {
   const loadFromStorage = useStore((state) => state.loadFromStorage);
+  const handleAuthCallback = useStore((state) => state.handleAuthCallback);
 
   React.useEffect(() => {
     loadFromStorage();
-  }, [loadFromStorage]);
+
+    // Handle email confirmation redirect — when the user clicks the confirmation
+    // link in their email, Supabase redirects back with auth tokens in the URL hash.
+    // This detects that and auto-signs the user in.
+    handleAuthCallback();
+  }, [loadFromStorage, handleAuthCallback]);
 
   return (
     <BrowserRouter>
