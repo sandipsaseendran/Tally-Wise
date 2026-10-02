@@ -1,25 +1,27 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Sidebar } from './components/layout/Sidebar';
 import { RightPanel } from './components/layout/RightPanel';
-import { Dashboard } from './pages/Dashboard';
-import { Contracts } from './pages/Contracts';
-import { Documents } from './pages/Documents';
-import { Invoices } from './pages/Invoices';
-import { Card } from './pages/Card';
-import Transactions from './pages/Transactions';
-import { Withdrawal } from './pages/Withdrawal';
-import { Referrals } from './pages/Referrals';
-import { Settings } from './pages/Settings';
-import { Accounts } from './pages/Accounts';
-import { Budgets } from './pages/Budgets';
-import { Goals } from './pages/Goals';
-import { Analytics } from './pages/Analytics';
-import { Reports } from './pages/Reports';
-import Login from './pages/Login';
-
 import { AIAssistantModal } from './components/ai/AIAssistantModal';
+import { PageSkeleton } from './components/shared/PageSkeleton';
 import { useStore } from '../store/useStore';
+
+// Lazy-loaded route components for optimal initial bundle size and Vercel performance
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const Contracts = lazy(() => import('./pages/Contracts').then(m => ({ default: m.Contracts })));
+const Documents = lazy(() => import('./pages/Documents').then(m => ({ default: m.Documents })));
+const Invoices = lazy(() => import('./pages/Invoices').then(m => ({ default: m.Invoices })));
+const Card = lazy(() => import('./pages/Card').then(m => ({ default: m.Card })));
+const Transactions = lazy(() => import('./pages/Transactions'));
+const Withdrawal = lazy(() => import('./pages/Withdrawal').then(m => ({ default: m.Withdrawal })));
+const Accounts = lazy(() => import('./pages/Accounts').then(m => ({ default: m.Accounts })));
+const Budgets = lazy(() => import('./pages/Budgets').then(m => ({ default: m.Budgets })));
+const Goals = lazy(() => import('./pages/Goals').then(m => ({ default: m.Goals })));
+const Analytics = lazy(() => import('./pages/Analytics').then(m => ({ default: m.Analytics })));
+const Reports = lazy(() => import('./pages/Reports').then(m => ({ default: m.Reports })));
+const Referrals = lazy(() => import('./pages/Referrals').then(m => ({ default: m.Referrals })));
+const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
+const Login = lazy(() => import('./pages/Login'));
 
 // Protected App Layout Wrapper
 function ProtectedLayout() {
@@ -36,23 +38,25 @@ function ProtectedLayout() {
 
       {/* Center Zone: Main Content */}
       <main className="flex-1 flex relative h-full">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/contracts" element={<Contracts />} />
-          <Route path="/documents" element={<Documents />} />
-          <Route path="/invoices" element={<Invoices />} />
-          <Route path="/card" element={<Card />} />
-          <Route path="/transactions" element={<Transactions />} />
-          <Route path="/withdrawal" element={<Withdrawal />} />
-          <Route path="/accounts" element={<Accounts />} />
-          <Route path="/budgets" element={<Budgets />} />
-          <Route path="/goals" element={<Goals />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/referrals" element={<Referrals />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<PageSkeleton />}>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/contracts" element={<Contracts />} />
+            <Route path="/documents" element={<Documents />} />
+            <Route path="/invoices" element={<Invoices />} />
+            <Route path="/card" element={<Card />} />
+            <Route path="/transactions" element={<Transactions />} />
+            <Route path="/withdrawal" element={<Withdrawal />} />
+            <Route path="/accounts" element={<Accounts />} />
+            <Route path="/budgets" element={<Budgets />} />
+            <Route path="/goals" element={<Goals />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/referrals" element={<Referrals />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </main>
 
       {/* Right Zone: Insights Panel */}
@@ -69,7 +73,11 @@ function LoginRoute() {
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
   }
-  return <Login />;
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <Login />
+    </Suspense>
+  );
 }
 
 function App() {

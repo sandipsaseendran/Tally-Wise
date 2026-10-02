@@ -7,6 +7,7 @@ import { useStore } from '../../store/useStore';
 import { AddFundsModal } from '../components/forms/AddFundsModal';
 import { WithdrawFundsModal } from '../components/forms/WithdrawFundsModal';
 import { AddCardModal } from '../components/forms/AddCardModal';
+import { useI18n } from '../i18n';
 
 const CURRENCIES = [
   { label: 'US USD', symbol: '$' },
@@ -16,17 +17,12 @@ const CURRENCIES = [
   { label: 'IN INR', symbol: '₹' },
 ];
 
-const getTimeGreeting = () => {
+const getTimeGreetingKey = (): 'morning' | 'afternoon' | 'evening' | 'night' => {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) {
-    return 'Good morning';
-  } else if (hour >= 12 && hour < 17) {
-    return 'Good afternoon';
-  } else if (hour >= 17 && hour < 22) {
-    return 'Good evening';
-  } else {
-    return 'Good night';
-  }
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 17) return 'afternoon';
+  if (hour >= 17 && hour < 22) return 'evening';
+  return 'night';
 };
 
 export function Dashboard() {
@@ -35,27 +31,30 @@ export function Dashboard() {
   const settings = useStore((state) => state.settings);
   const updateSettings = useStore((state) => state.updateSettings);
   const currentUser = useStore((state) => state.currentUser);
+  const { t } = useI18n();
+
   const [isFundsModalOpen, setIsFundsModalOpen] = useState(false);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = useState(false);
-  const [greeting, setGreeting] = useState(getTimeGreeting);
-  
-  const currentCurrency = CURRENCIES.find(c => c.symbol === settings.currency) || CURRENCIES[0];
+  const [greetingKey, setGreetingKey] = useState<'morning' | 'afternoon' | 'evening' | 'night'>(getTimeGreetingKey);
+
+  const currentCurrency = CURRENCIES.find((c) => c.symbol === settings.currency) || CURRENCIES[0];
 
   useEffect(() => {
     loadFromStorage();
   }, [loadFromStorage]);
 
   useEffect(() => {
-    setGreeting(getTimeGreeting());
+    setGreetingKey(getTimeGreetingKey());
     const interval = setInterval(() => {
-      setGreeting(getTimeGreeting());
+      setGreetingKey(getTimeGreetingKey());
     }, 60000);
     return () => clearInterval(interval);
   }, []);
 
   const totalBalance = accounts.reduce((acc, account) => acc + (account.balance || 0), 0);
+  const greetingText = t.dashboard?.greeting?.[greetingKey] || 'Good morning';
 
   return (
     <div className="flex w-full h-full">
@@ -69,30 +68,33 @@ export function Dashboard() {
         {/* Greeting */}
         <div className="mb-10">
           <h1 className="text-[40px] font-display font-medium text-tally-text-primary dark:text-white tracking-tight">
-            {greeting}{currentUser?.name ? `, ${currentUser.name}` : ''}!
+            {greetingText}{currentUser?.name ? `, ${currentUser.name}` : ''}!
           </h1>
         </div>
 
         {/* Balance Row */}
         <div className="flex items-end justify-between mb-16">
           <div className="flex flex-col gap-2">
-            <span className="text-sm font-bold text-tally-text-secondary dark:text-tally-text-secondaryDark tracking-wide uppercase">TOTAL BALANCE</span>
+            <span className="text-sm font-bold text-tally-text-secondary dark:text-tally-text-secondaryDark tracking-wide uppercase">
+              {t.dashboard?.totalBalance || 'TOTAL BALANCE'}
+            </span>
             <div className="flex items-center gap-4">
               <span className="text-[56px] font-display font-bold text-tally-text-primary dark:text-white tracking-tighter leading-none">
-                {settings.currency}{totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {settings.currency}
+                {totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setIsCurrencyDropdownOpen(!isCurrencyDropdownOpen)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 dark:border-tally-border-dark bg-white dark:bg-tally-surface-dark shadow-sm hover:bg-gray-50 dark:hover:bg-tally-surface-darkHover transition-colors"
                 >
                   <span className="text-sm font-bold text-tally-text-primary dark:text-white">{currentCurrency.label}</span>
                   <ChevronDown className="w-4 h-4 text-tally-text-secondary dark:text-tally-text-secondaryDark" />
                 </button>
-                
+
                 {isCurrencyDropdownOpen && (
                   <div className="absolute top-full mt-2 right-0 w-36 bg-white dark:bg-tally-surface-dark border border-gray-200 dark:border-tally-border-dark rounded-xl shadow-lg overflow-hidden z-50">
-                    {CURRENCIES.map(curr => (
+                    {CURRENCIES.map((curr) => (
                       <button
                         key={curr.label}
                         onClick={() => {
@@ -111,18 +113,18 @@ export function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={() => setIsWithdrawModalOpen(true)}
               className="flex items-center gap-2 px-6 py-3 rounded-full bg-white dark:bg-tally-surface-dark border border-gray-200 dark:border-tally-border-dark text-tally-text-primary dark:text-white font-semibold hover:bg-gray-50 dark:hover:bg-tally-surface-darkHover transition-colors shadow-sm"
             >
-              Withdraw funds
+              {t.dashboard?.withdrawFunds || 'Withdraw funds'}
             </button>
-            <button 
+            <button
               onClick={() => setIsFundsModalOpen(true)}
               className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#1c2127] dark:bg-white text-white dark:text-tally-text-primary font-semibold hover:opacity-90 transition-opacity shadow-md"
             >
               <Plus className="w-5 h-5" />
-              Add funds
+              {t.dashboard?.addFunds || 'Add funds'}
             </button>
           </div>
         </div>
@@ -132,13 +134,15 @@ export function Dashboard() {
           {/* Left Side: Wallet */}
           <div className="w-[420px] shrink-0">
             <div className="flex items-center justify-between mb-6 px-1">
-              <h3 className="text-xl font-display font-bold text-tally-text-primary dark:text-white">Your Cards</h3>
-              <button 
+              <h3 className="text-xl font-display font-bold text-tally-text-primary dark:text-white">
+                {t.dashboard?.yourCards || 'Your Cards'}
+              </h3>
+              <button
                 onClick={() => setIsCardModalOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-tally-text-primary dark:text-white bg-white dark:bg-tally-surface-dark border border-gray-200 dark:border-tally-border-dark rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-tally-surface-darkHover transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                Add Card
+                {t.dashboard?.addCard || 'Add Card'}
               </button>
             </div>
             <WalletStack />
@@ -146,7 +150,6 @@ export function Dashboard() {
 
           {/* Right Side: Activity */}
           <div className="flex-1 max-w-xl">
-
             <RecentActivity />
           </div>
         </div>
@@ -159,3 +162,4 @@ export function Dashboard() {
   );
 }
 
+export default Dashboard;
